@@ -147,7 +147,7 @@ const TelemetryCard = (props) => {
     let systolicVal = systolicIndex >= 0 ? rxbox[systolicIndex].tpo_value : null;
     let diastolicVal = diastolicIndex >= 0 ? rxbox[diastolicIndex].tpo_value : null;
 
-    if (!_.isEmpty(systolicVal) && !_.isEmpty(diastolicVal)) {
+    if (systolicVal && diastolicVal) {
       
       const currentSys = rxbox[systolicIndex].tpo_effectivity;
       const currentDia = rxbox[diastolicIndex].tpo_effectivity;
