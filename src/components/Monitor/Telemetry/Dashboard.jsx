@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Grid } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import clsx from "clsx";
-import Pusher from "pusher-js";
+import { io } from "socket.io-client";
 import _ from "lodash";
 import moment from "moment";
 import TelemetryCard from "./Card";
@@ -10,7 +10,8 @@ import { RepositoryFactory } from "../../../api/repositories/RepositoryFactory";
 
 const MonitorRepository = RepositoryFactory.get("monitor");
 const PatientRepository = RepositoryFactory.get("patient");
-const RXBOX_INTERVAL = 5000;
+const RXBOX_INTERVAL = 60000;
+let RXBOX_DATA = [];
 
 const DOMAIN =
   process.env.REACT_APP_ENV === "LOCAL"
@@ -47,7 +48,7 @@ const TelemetryDashboard = (props) => {
   const [rxboxData, setRxboxData] = useState([]);
   const [patients, setPatients] = useState([]);
   const [monitor, setMonitor] = useState({});
-  const [refreshInterval] = useState(60);
+  const [refreshInterval] = useState(30);
   const [code] = useState({
     ecg: "76282-3",
     spo2: "59407-7",
@@ -62,23 +63,26 @@ const TelemetryDashboard = (props) => {
     mean_arterial_pressure: "8478-0",
   });
 
-  const getMonitorWithPatientId = async () => {
-    if (!_.isEmpty(match.params)) {
-      const { data } = await MonitorRepository.getMonitorWithPatient(match.params.id);
-      const updatedMonitor = data.map((el) => {
-        let { patientIds, ...data } = el;
-        if (_.isEmpty(patientIds)) {
-          patientIds = [];
-        } else {
-          patientIds = JSON.parse(patientIds);
-        }
-        return {
-          ...data,
-          patientIds,
-        };
-      });
-      setMonitor(updatedMonitor[0]);
-    }
+  const getMonitorWithPatientId = () => {
+    return new Promise(async (resolve, reject) => {
+      if (!_.isEmpty(match.params)) {
+        const { data } = await MonitorRepository.getMonitorWithPatient(match.params.id);
+        const updatedMonitor = data.map((el) => {
+          let { patientIds, ...data } = el;
+          if (_.isEmpty(patientIds)) {
+            patientIds = [];
+          } else {
+            patientIds = JSON.parse(patientIds);
+          }
+          return {
+            ...data,
+            patientIds,
+          };
+        });
+        setMonitor(updatedMonitor[0]);
+        resolve(updatedMonitor[0]);
+      }
+    });
   };
 
   const getPatient = async (id) => {
@@ -147,18 +151,21 @@ const TelemetryDashboard = (props) => {
 
   const getPatientRxboxData = (patientId) => {
     const data = [...rxboxData];
+    console.log("getPatientRxboxData", data);
     if (data.length) {
       const rxbox = data.filter((el) => {
         if (Array.isArray(patientId)) {
-          if (patientId.indexOf(el.tpo_subject) >= 0) {
-            if (validateRxboxData(el)) {
-              return el;
-            }
-          }
-        } else if (el.tpo_subject === patientId) {
-          if (validateRxboxData(el)) {
+          if (patientId.indexOf(el.tpo_subject + "") >= 0) {
             return el;
+            // if (validateRxboxData(el)) {
+            // }
+            // console.log(false, "----validate----");
           }
+        } else if ((el.tpo_subject + "") === patientId) {
+          return el;
+          // if (validateRxboxData(el)) {
+          // }
+          // console.log(false, "----validate----");
         }
       });
       return rxbox;
@@ -172,7 +179,7 @@ const TelemetryDashboard = (props) => {
   };
 
   const autoRefresh = () => {
-    setTimeout(function () {
+    setInterval(function () {
       // window.location.reload();
       getMonitorWithPatientId();
     }, refreshInterval * 1000);
@@ -180,7 +187,6 @@ const TelemetryDashboard = (props) => {
 
   const getPatientObservation = async () => {
     const { data, status } = await PatientRepository.getLivePatientObservation();
-    // console.log(JSON.parse(data))
     if (status === 200) {
       const [obs, notifs] = data;
       const observations = obs.patientBasicObservation;
@@ -203,6 +209,7 @@ const TelemetryDashboard = (props) => {
         };
       });
       setRxboxData(parsedData);
+      RXBOX_DATA = parsedData;
     }
   };
 
@@ -277,26 +284,21 @@ const TelemetryDashboard = (props) => {
     // return data;
   };
 
-  const initPusher = () => {
-    const pusherOptions = {
-      cluster: "eu",
-      // options below are needed for pusher local dev server
-      encrypted: false,
-      httpHost: DOMAIN,
-      httpPort: process.env.REACT_APP_PUSHER_HTTP_PORT,
-      wsHost: DOMAIN,
-      wsPort: process.env.REACT_APP_PUSHER_WS_PORT,
-    };
-    const pusherKey = process.env.REACT_APP_PUSHER_KEY;
+  const initPusher = (rxboxDataState, monitorDataState) => {
 
-    var channel = process.env.REACT_APP_PUSHER_CHANNEL;
-    var event = process.env.REACT_APP_PUSHER_EVENT;
+    let event = process.env.REACT_APP_PUSHER_EVENT;
+    let url = process.env.REACT_APP_LIFELINE_BACKEND_URL || `http://localhost:3000`;
+    console.log("TESTING MONITOR DATA", monitorDataState);
+    let socket = io(url, {
+      query: {
+        monitor: monitorDataState.name
+      }
+    });
 
-    var pusher = new Pusher(pusherKey, pusherOptions);
-    // start listening for events
-    pusher.subscribe(channel).bind(event, function (data) {
-      const d = JSON.parse(data);
-      const parsedData = d.patientBasicObservation.map((el) => {
+    socket.on(event, (args, _callback) => {
+      const d = args;
+      console.log("PUSHER DATA", d);
+      let parsedData = d.patientBasicObservation.map((el) => {
         const {
           tpo_subject,
           tpo_code,
@@ -314,22 +316,34 @@ const TelemetryDashboard = (props) => {
           tpo_effectivity,
         };
       });
-      setRxboxData(parsedData);
+
+      if (RXBOX_DATA.length > 0) {
+        parsedData = RXBOX_DATA.map(el1 => parsedData.find(el2 => el2.tpo_subject === el1.tpo_subject && el2.tpo_code === el1.tpo_code && moment(el2.tpo_effectivity) > moment(el1.tpo_effectivity)) || el1);
+        setRxboxData(parsedData);
+        console.log("PUSHER UPDATED", parsedData);
+      } else {
+        console.log("PUSHER FAILED TO UPDATE");
+      }
     });
+
+    socket.connect();
+
   };
 
   useEffect(() => {
+    getPatientObservation();
     setInterval(getPatientObservation, RXBOX_INTERVAL);
     // setInterval(getPatientObservationTest, RXBOX_INTERVAL);
-    // initPusher();
-    getMonitorWithPatientId();
+    getMonitorWithPatientId().then(monitorReturn => {
+      initPusher(rxboxData, monitorReturn);
+    });
     autoRefresh();
   }, []);
-
+  
   useEffect(() => {
     getPatients();
   }, [monitor]);
-
+  
   useEffect(() => {
     // getPatientRxboxData([8, 9]);
   }, [rxboxData]);
@@ -357,7 +371,7 @@ const TelemetryDashboard = (props) => {
     const patientCards = [];
     if (!_.isEmpty(monitor)) {
       const { patientIds } = monitor;
-      if (patientIds.length) {
+      if (patientIds.length && patients.length) {
         for (let index = 0; index < 6; index++) {
           let paper = "";
           const patientId = patientIds[index];
@@ -365,7 +379,6 @@ const TelemetryDashboard = (props) => {
             return e.rpi_patientid === patientId;
           });
           const patient = patients[patientIndex];
-          // console.log(patient);
           let rxboxData = getPatientRxboxData(patientId);
           if (!_.isEmpty(patient)) {
             paper = <TelemetryCard patient={patient} rxbox={rxboxData} />;

@@ -3,9 +3,9 @@ import axios from "axios";
 const baseDomain =
   process.env.REACT_APP_ENV === "LOCAL"
     ? process.env.REACT_APP_LOCAL
-    : process.env.REACT_APP_STAGING;
+    : window.location.origin;
 
-const baseURL = `${baseDomain}/api`;
+const baseURL = process.env.REACT_APP_LIFELINE_BACKEND_URL || `${baseDomain}/api`;
 
 export default axios.create({
   baseURL,
