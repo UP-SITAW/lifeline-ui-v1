@@ -119,7 +119,7 @@ const MonitorSetup = () => {
     covidStatus: "",
     classificationStatus: "",
   });
-  const [ward, setWard] = useState("UP-PGH WARD 1");
+  const [ward, setWard] = useState("UP-PGH OBAS");
   const [maximumSlots] = useState(6);
   const [monitors, setMonitors] = useState([]);
   const [patients, setPatients] = useState([]);

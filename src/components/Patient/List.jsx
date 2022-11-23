@@ -111,7 +111,7 @@ const PatientList = (props) => {
     covidStatus: "",
     classificationStatus: ""
   });
-  const [ward, setWard] = useState("UP-PGH WARD 1");
+  const [ward, setWard] = useState("UP-PGH OBAS");
   const [patients, setPatients] = useState([]);
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [chosenPatient, setChosenPatient] = useState({});
