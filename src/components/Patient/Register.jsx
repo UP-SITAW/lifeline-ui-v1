@@ -130,6 +130,19 @@ const PatientRegister = (props) => {
   const patientHandler = (e, modifiedVal = null) => {
     const data = { ...patient };
     if (e) {
+
+      if (e.target.name == "patient_classification" && e.target.value == 28) {
+        data["covid19_case"] = 29;
+        setValue("covid19_case", 29);
+      }
+
+      if (e.target.name == "covid19_case" &&  data["patient_classification"] == 28) {
+        return ()=>{
+          data["covid19_case"] = 29;
+          setValue("covid19_case", 29);
+        }
+      }
+
       data[e.target.name] = e.target.value;
       setValue(e.target.name, e.target.value);
     } else {
