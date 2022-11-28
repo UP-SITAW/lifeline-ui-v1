@@ -130,6 +130,19 @@ const PatientRegister = (props) => {
   const patientHandler = (e, modifiedVal = null) => {
     const data = { ...patient };
     if (e) {
+
+      if (e.target.name == "patient_classification" && e.target.value == 28) {
+        data["covid19_case"] = 29;
+        setValue("covid19_case", 29);
+      }
+
+      if (e.target.name == "covid19_case" &&  data["patient_classification"] == 28) {
+        return ()=>{
+          data["covid19_case"] = 29;
+          setValue("covid19_case", 29);
+        }
+      }
+
       data[e.target.name] = e.target.value;
       setValue(e.target.name, e.target.value);
     } else {
@@ -257,47 +270,70 @@ const PatientRegister = (props) => {
       }
       formData.append(key, value);
     }
+    
     console.log(data);
-    // for (var key in payload) {
-    //   formData.append(key, payload[key]);
-    // }
-    if (patientid) {
-      console.log("uopdate");
-      await PatientRepository.updatePatient(formData)
-        .then((res) => {
-          if (res.data.updatepatient_report) {
-            Swal.fire({
-              icon: "success",
-              title: "Patient updated",
-              showConfirmButton: true,
-              onClose: () => history.push({ pathname: `/patient/details/${patientid}`, state: "" }),
-            });
+
+    Swal.fire({
+      icon: "question",
+      title: "Is all infomation correct?",
+      showConfirmButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Yes",
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        return new Promise(async (resolve, _reject) => {
+          if (patientid) {
+            console.log("update");
+            await PatientRepository.updatePatient(formData)
+              .then((res) => {
+                if (res.data.updatepatient_report) {
+                  return resolve([patientid]);
+                }
+              })
+              .catch((err) => {
+                resolve(["error", err]);
+              });
+          } else {
+            await PatientRepository.createPatient(formData)
+              .then(async (res) => {
+                console.log(res);
+                if (res.data.addpatient_report) {
+                  const patient_id = res.data.addpatient_report[0].patient_id;
+                  await PatientRepository.createDefaultPatientConfig(
+                    patient_id
+                  );
+                  resolve([patient_id]);
+                }
+              })
+              .catch((err) => {
+                resolve(["error", err]);
+              });
           }
-        })
-        .catch((err) => {
-          console.log(err);
         });
-    } else {
-      await PatientRepository.createPatient(formData)
-        .then(async (res) => {
-          console.log(res);
-          if (res.data.addpatient_report) {
-            const patient_id = res.data.addpatient_report[0].patient_id;
-            await PatientRepository.createDefaultPatientConfig(
-              patient_id
-            );
-            Swal.fire({
-              icon: "success",
-              title: "Patient added",
-              showConfirmButton: true,
-              onClose: () => history.push({ pathname: `/patient/details/${patient_id}`, state: "" }),
-            });
-          }
-        })
-        .catch((err) => {
-          console.log(err);
+      },
+      allowOutsideClick: () => !Swal.isLoading()
+    }).then(async (result) => {
+
+      if (result.dismiss) {
+        return;
+      }
+
+      if (result.value[0] == "error") {
+        console.error(result.value[1]);
+        return Swal.fire({
+          icon: "error",
+          title: "Operation Error: Please try again.",
+          showConfirmButton: true
         });
-    }
+      } else {
+        return Swal.fire({
+          icon: "success",
+          title: "Patient " + (patientid ? "updated" : "added"),
+          showConfirmButton: true,
+          onClose: () => history.push({ pathname: `/patient/details/${result.value[0]}`, state: "" }),
+        });
+      }
+    })
   };
 
   useEffect(() => {
@@ -483,7 +519,8 @@ const PatientRegister = (props) => {
                       variant="outlined"
                     >
                       <Select
-                        id="grouped-select"
+                        error={errors.gender}
+                        id="gender-select"
                         labelId="gender"
                         onChange={patientHandler}
                         value={patient.gender || ""}

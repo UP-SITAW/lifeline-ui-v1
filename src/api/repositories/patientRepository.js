@@ -73,10 +73,18 @@ export default {
     return Repository.post(`/getPatientRangedObservation`, formData);
   },
 
-  getLivePatientObservation() {
-    return Repository.get(`/getPatientObservation`);
+  getLivePatientObservation(ids = [], obsCodes = []) {
+    let query = "";
+    if (ids.length > 0) {
+      query += ("patientid=" + ids.join(","));
+    }
+    if (obsCodes.length > 0) {
+      query += query != "" ? "&" : "";
+      query += "obscode=" + obsCodes.join(",");
+    }
+    return Repository.get(`/getPatientObservation` + (query != "" ? ("?" + query) : ""));
   },
-  
+
   async getAllObservation(payload) {
     const observationList = [
       {
@@ -130,30 +138,30 @@ export default {
       },
     ];
     const tableData = {
-      "00": {key: "00", time: "12:00 AM"},
-      "01": {key: "01", time: "1:00 AM"},
-      "02": {key: "02", time: "2:00 AM"},
-      "03": {key: "03", time: "3:00 AM"},
-      "04": {key: "04", time: "4:00 AM"},
-      "05": {key: "05", time: "5:00 AM"},
-      "06": {key: "06", time: "6:00 AM"},
-      "07": {key: "07", time: "7:00 AM"},
-      "08": {key: "08", time: "8:00 AM"},
-      "09": {key: "09", time: "9:00 AM"},
-      10: {key: "10", time: "10:00 AM"},
-      11: {key: "11", time: "11:00 AM"},
-      12: {key: "12", time: "12:00 PM"},
-      13: {key: "13", time: "1:00 PM"},
-      14: {key: "14", time: "2:00 PM"},
-      15: {key: "15", time: "3:00 PM"},
-      16: {key: "16", time: "4:00 PM"},
-      17: {key: "17", time: "5:00 PM"},
-      18: {key: "18", time: "6:00 PM"},
-      19: {key: "19", time: "7:00 PM"},
-      20: {key: "20", time: "8:00 PM"},
-      21: {key: "21", time: "9:00 PM"},
-      22: {key: "22", time: "10:00 PM"},
-      23: {key: "23", time: "11:00 PM"},
+      "00": { key: "00", time: "12:00 AM" },
+      "01": { key: "01", time: "1:00 AM" },
+      "02": { key: "02", time: "2:00 AM" },
+      "03": { key: "03", time: "3:00 AM" },
+      "04": { key: "04", time: "4:00 AM" },
+      "05": { key: "05", time: "5:00 AM" },
+      "06": { key: "06", time: "6:00 AM" },
+      "07": { key: "07", time: "7:00 AM" },
+      "08": { key: "08", time: "8:00 AM" },
+      "09": { key: "09", time: "9:00 AM" },
+      10: { key: "10", time: "10:00 AM" },
+      11: { key: "11", time: "11:00 AM" },
+      12: { key: "12", time: "12:00 PM" },
+      13: { key: "13", time: "1:00 PM" },
+      14: { key: "14", time: "2:00 PM" },
+      15: { key: "15", time: "3:00 PM" },
+      16: { key: "16", time: "4:00 PM" },
+      17: { key: "17", time: "5:00 PM" },
+      18: { key: "18", time: "6:00 PM" },
+      19: { key: "19", time: "7:00 PM" },
+      20: { key: "20", time: "8:00 PM" },
+      21: { key: "21", time: "9:00 PM" },
+      22: { key: "22", time: "10:00 PM" },
+      23: { key: "23", time: "11:00 PM" },
     };
     const { spec_date, patientid, utc_offset } = payload;
     await Promise.all(observationList.map(async el => {
@@ -168,7 +176,7 @@ export default {
         // let updatedTableData = _.cloneDeep(tableData);
 
         obs.map(e => {
-          tableData[e.hour_clustered] = Object.assign(tableData[e.hour_clustered], {[el.id]: e.avg_value});
+          tableData[e.hour_clustered] = Object.assign(tableData[e.hour_clustered], { [el.id]: e.avg_value });
         });
       } else {
         /* For BP */
@@ -191,12 +199,12 @@ export default {
             return;
           }
           const diastolicVal = obsDiastolic[diastolicIndex].avg_value;
-          tableData[e.hour_clustered] = Object.assign(tableData[e.hour_clustered], {[el.id]: `${e.avg_value}/${diastolicVal}`});
+          tableData[e.hour_clustered] = Object.assign(tableData[e.hour_clustered], { [el.id]: `${e.avg_value}/${diastolicVal}` });
         });
       }
     }));
     const updatedTableData = Object.values(tableData);
-    const parsedData = _.sortBy(updatedTableData, [function(o) { return o.key; }]);
+    const parsedData = _.sortBy(updatedTableData, [function (o) { return o.key; }]);
     return parsedData;
   }
 };

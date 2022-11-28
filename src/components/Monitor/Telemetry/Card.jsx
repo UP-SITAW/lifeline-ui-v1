@@ -147,7 +147,7 @@ const TelemetryCard = (props) => {
     let systolicVal = systolicIndex >= 0 ? rxbox[systolicIndex].tpo_value : null;
     let diastolicVal = diastolicIndex >= 0 ? rxbox[diastolicIndex].tpo_value : null;
 
-    if (!_.isEmpty(systolicVal) && !_.isEmpty(diastolicVal)) {
+    if (systolicVal && diastolicVal) {
       
       const currentSys = rxbox[systolicIndex].tpo_effectivity;
       const currentDia = rxbox[diastolicIndex].tpo_effectivity;
@@ -252,7 +252,7 @@ const TelemetryCard = (props) => {
       return o.tpo_code === code.mean_arterial_pressure;
     });
     if (index >= 0) {
-      setTime(moment(rxbox[index].tpo_effectivity).local().format("HH:mm"));
+      setTime(moment(rxbox[index].tpo_effectivity).local().format("h:mma"));
     }
   };
 
@@ -461,6 +461,7 @@ const TelemetryCard = (props) => {
           {/* <Grid item xs={2} /> */}
           <Grid item xs={5} align="right" className={classes.overflowText}>
             <Typography variant="h5">{patient.rpi_covid19 || "--"}</Typography>
+            {/* <Typography variant="h5">{time || "--"}</Typography> */}
           </Grid>
 
           {/* <Grid item xs={3} align="right">

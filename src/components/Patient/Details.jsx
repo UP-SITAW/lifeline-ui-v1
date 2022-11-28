@@ -250,33 +250,46 @@ const PatientDetails = (props) => {
   }, [tableFilter])
 
   const requestBP = async () => {
-    try {
-      const patientId = patient.rpi_patientid;
-      // const { data } = await MonitorRepository.requestBP(patientId);
-      MySwal.fire({
-        title: "Are you sure?",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#3085d6",
-        cancelButtonColor: "#d33",
-        confirmButtonText: "Yes",
-      }).then(async (result) => {
-        if (result.value) {
-          const { data } = await MonitorRepository.requestBP(patientId);
-          setRequestId(data.RequestResult[0].requestid);
-        }
-      });
-    } catch (e) {
-      if (e) {
-        // alert("no patient with that id");
-        console.log(e);
+    const patientId = patient.rpi_patientid;
+    // const { data } = await MonitorRepository.requestBP(patientId);
+    MySwal.fire({
+      title: "Are you sure?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes",
+      showLoaderOnConfirm: true,
+      allowOutsideClick: () => !Swal.isLoading(),
+      preConfirm: () => {
+        return new Promise(async (resolve, _reject) => {
+          try {
+            const { data } = await MonitorRepository.requestBP(patientId);
+            setRequestId(data.RequestResult[0].requestid);
+            // Swal.showValidationMessage("Waiting for device response");
+            setTimeout(()=>{
+              resolve([data.RequestResult[0].requestid]);
+            }, 15000);
+          } catch (err) {
+            return resolve(["error", err]);
+          }
+        });
+      }
+    }).then(async (result) => {
+      if (result.dismiss) {
+        return;
+      }
+      if (result.value[0] == "error") {
+        console.log(result.value[1]);
         MySwal.fire({
           icon: "error",
           title: "Request BP failed.",
-          text: e,
+          text: result.value[1],
         });
+      } else {
+        Swal.close();
       }
-    }
+    });
   };
 
   const confirmBPRequest = () => {

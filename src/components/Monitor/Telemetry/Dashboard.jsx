@@ -12,6 +12,7 @@ const MonitorRepository = RepositoryFactory.get("monitor");
 const PatientRepository = RepositoryFactory.get("patient");
 const RXBOX_INTERVAL = 60000;
 let RXBOX_DATA = [];
+let PATIENT_LIST = [];
 
 const DOMAIN =
   process.env.REACT_APP_ENV === "LOCAL"
@@ -57,7 +58,7 @@ const TelemetryDashboard = (props) => {
     temp: "8310-5",
     hr: "76282-3",
     pr: "8889-8",
-    bp: "131328",
+    bp: "85354-9",
     systolic_bp: "8480-6",
     diastolic_bp: "8462-4",
     mean_arterial_pressure: "8478-0",
@@ -74,6 +75,7 @@ const TelemetryDashboard = (props) => {
           } else {
             patientIds = JSON.parse(patientIds);
           }
+          PATIENT_LIST = patientIds;
           return {
             ...data,
             patientIds,
@@ -186,7 +188,7 @@ const TelemetryDashboard = (props) => {
   };
 
   const getPatientObservation = async () => {
-    const { data, status } = await PatientRepository.getLivePatientObservation();
+    const { data, status } = await PatientRepository.getLivePatientObservation(PATIENT_LIST, Object.values(code));
     if (status === 200) {
       const [obs, notifs] = data;
       const observations = obs.patientBasicObservation;
@@ -208,10 +210,36 @@ const TelemetryDashboard = (props) => {
           tpo_effectivity,
         };
       });
-      setRxboxData(parsedData);
-      RXBOX_DATA = parsedData;
+      // setRxboxData(parsedData);
+      // RXBOX_DATA = parsedData;
+      updateRxBoxData(parsedData);
+      setRxboxData(RXBOX_DATA.slice());
     }
   };
+
+  const updateRxBoxData = async (newData) => {
+    if (newData && newData.length > 0) {
+      newData.forEach(element => {
+        let exist = false;
+        let replace = false;
+        let index = -1;
+        RXBOX_DATA.forEach((obsElem, i) => {
+          if (element.tpo_subject === obsElem.tpo_subject && element.tpo_code === obsElem.tpo_code) {
+            exist = true;
+            if (moment(element.tpo_effectivity) > moment(obsElem.tpo_effectivity)) {
+              replace = true;
+              index = i;
+            }
+          }
+        });
+        if (!exist) {
+          RXBOX_DATA.push(element);
+        } else if (replace) {
+          RXBOX_DATA[index] = element;
+        }
+      });
+    }
+  }
 
   const getPatientObservationTest = async () => {
     const val = moment.utc().format("ss") % 2 === 1 ? "90" : "25";
@@ -286,7 +314,7 @@ const TelemetryDashboard = (props) => {
 
   const initPusher = (rxboxDataState, monitorDataState) => {
 
-    let event = process.env.REACT_APP_PUSHER_EVENT;
+    let event = process.env.REACT_APP_PUSHER_EVENT || "obs_added";
     let url = (process.env.REACT_APP_LIFELINE_BACKEND_URL ? process.env.REACT_APP_LIFELINE_BACKEND_URL.replace("/api", "") : null) || (window.location.origin).replace("/api", "") || `http://localhost:3000`;
 
     let socket = io(url, {
@@ -321,30 +349,8 @@ const TelemetryDashboard = (props) => {
         };
       });
 
-      if (RXBOX_DATA.length > 0) {
-        let parsedData2 = RXBOX_DATA.map(el1 => parsedData.find(el2 => el2.tpo_subject === el1.tpo_subject && el2.tpo_code === el1.tpo_code && moment(el2.tpo_effectivity) > moment(el1.tpo_effectivity)) || el1);
-        
-        parsedData.forEach(data1 => {
-          let patientDataExist = false;
-          RXBOX_DATA.forEach(data2 => {
-
-            if (data1.tpo_subject === data2.tpo_subject && data1.tpo_code === data2.tpo_code) {
-              patientDataExist = true;
-            }
-
-            
-          });
-          if (patientDataExist == false) {
-            parsedData2.push(data1);
-          }
-        });
-        
-        RXBOX_DATA = parsedData2;
-        setRxboxData(parsedData2);
-        console.log("PUSHER UPDATED", parsedData2);
-      } else {
-        console.log("PUSHER FAILED TO UPDATE");
-      }
+      updateRxBoxData(parsedData);
+      setRxboxData(RXBOX_DATA.slice());
     });
 
     socket.connect();
@@ -368,6 +374,7 @@ const TelemetryDashboard = (props) => {
 
   useEffect(() => {
     // getPatientRxboxData([8, 9]);
+
   }, [rxboxData]);
 
   const placedMonitors = () => {
