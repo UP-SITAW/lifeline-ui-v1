@@ -211,19 +211,19 @@ const TelemetryDashboard = (props) => {
         };
       });
       // setRxboxData(parsedData);
-      // RXBOX_DATA = parsedData;
-      updateRxBoxData(parsedData);
-      setRxboxData(RXBOX_DATA.slice());
+      RXBOX_DATA = parsedData;
+      return setRxboxData(parsedData);
     }
   };
 
-  const updateRxBoxData = async (newData) => {
+  const updateRxBoxData = async (newData, oldData) => {
     if (newData && newData.length > 0) {
+      let tempRxboxData = [...oldData];
       newData.forEach(element => {
         let exist = false;
         let replace = false;
         let index = -1;
-        RXBOX_DATA.forEach((obsElem, i) => {
+        oldData.forEach((obsElem, i) => {
           if (element.tpo_subject === obsElem.tpo_subject && element.tpo_code === obsElem.tpo_code) {
             exist = true;
             if (moment(element.tpo_effectivity) > moment(obsElem.tpo_effectivity)) {
@@ -233,12 +233,14 @@ const TelemetryDashboard = (props) => {
           }
         });
         if (!exist) {
-          RXBOX_DATA.push(element);
+          tempRxboxData.push(element);
         } else if (replace) {
-          RXBOX_DATA[index] = element;
+          tempRxboxData[index] = element;
         }
       });
+      return tempRxboxData;
     }
+    return oldData;
   }
 
   const getPatientObservationTest = async () => {
@@ -327,7 +329,7 @@ const TelemetryDashboard = (props) => {
       console.log('Socket connected successfully.');
     });
 
-    socket.on(event, (args, _callback) => {
+    socket.on(event, async (args, _callback) => {
       const d = args;
       console.log("PUSHER DATA", d);
       let parsedData = d.patientBasicObservation.map((el) => {
@@ -349,8 +351,9 @@ const TelemetryDashboard = (props) => {
         };
       });
 
-      updateRxBoxData(parsedData);
-      setRxboxData(RXBOX_DATA.slice());
+      let rxboxDataNew = await updateRxBoxData(parsedData, RXBOX_DATA);
+      RXBOX_DATA = rxboxDataNew;
+      setRxboxData(rxboxDataNew);
     });
 
     socket.connect();

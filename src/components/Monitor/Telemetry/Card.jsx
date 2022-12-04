@@ -163,24 +163,21 @@ const TelemetryCard = (props) => {
             timestamp: currentDia,
             value: diastolicVal
           }
-        })
-        console.log('updated bp reading');
+        });
+        // console.log('updated bp reading', { sys: rxbox[systolicIndex], dia: rxbox[diastolicIndex]});
 
       } else {
 
         systolicVal = bpReading.sys.value;
         diastolicVal = bpReading.dias.value;
-        console.log('reset bp reading');
+        // console.log('reset bp reading', bpReading);
 
       }
 
-      return `${systolicVal}/${diastolicVal}`;
+      return `${bpReading.sys.value}/${bpReading.dias.value}`;
 
     }
-    // if (index >= 0) {
-    //   return rxbox[index].tpo_value;
-    // }
-    return null;
+
   };
 
   // const getHR = () => {
@@ -252,7 +249,7 @@ const TelemetryCard = (props) => {
       return o.tpo_code === code.mean_arterial_pressure;
     });
     if (index >= 0) {
-      setTime(moment(rxbox[index].tpo_effectivity).local().format("h:mma"));
+      setTime(moment(rxbox[index].tpo_effectivity).local().format("HH:mm"));
     }
   };
 
